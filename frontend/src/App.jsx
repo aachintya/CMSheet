@@ -21,26 +21,31 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  const initialFetchDone = React.useRef(false);
+
   // Handle Session
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+      if (session && !initialFetchDone.current) {
         setCurrentUser(session.user);
         fetchManualProgress(session.user.id);
-        fetchCFProgress(session.user.user_metadata?.cf_id); // Initial load
+        fetchCFProgress(session.user.user_metadata?.cf_id);
+        initialFetchDone.current = true;
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         setCurrentUser(session.user);
-        fetchManualProgress(session.user.id);
-        if (event === 'SIGNED_IN') {
+        if (event === 'SIGNED_IN' && !initialFetchDone.current) {
+          fetchManualProgress(session.user.id);
           fetchCFProgress(session.user.user_metadata?.cf_id);
+          initialFetchDone.current = true;
         }
       } else {
         setCurrentUser(null);
         setManualSolved(new Set());
+        initialFetchDone.current = false;
       }
     });
 
@@ -72,12 +77,7 @@ function App() {
     }
   };
 
-  // No auto-fetch for CF progress. Only fetch manual progress.
-  useEffect(() => {
-    if (currentUser?.id) {
-      fetchManualProgress(currentUser.id);
-    }
-  }, [currentUser]);
+  // Initial progress is now handled within the auth session logic to prevent redundant calls.
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
