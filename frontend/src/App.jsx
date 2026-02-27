@@ -27,13 +27,17 @@ function App() {
       if (session) {
         setCurrentUser(session.user);
         fetchManualProgress(session.user.id);
+        fetchCFProgress(session.user.user_metadata?.cf_id); // Initial load
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         setCurrentUser(session.user);
         fetchManualProgress(session.user.id);
+        if (event === 'SIGNED_IN') {
+          fetchCFProgress(session.user.user_metadata?.cf_id);
+        }
       } else {
         setCurrentUser(null);
         setManualSolved(new Set());
@@ -68,10 +72,10 @@ function App() {
     }
   };
 
+  // No auto-fetch for CF progress. Only fetch manual progress.
   useEffect(() => {
-    const cfId = currentUser?.user_metadata?.cf_id;
-    if (cfId) {
-      fetchCFProgress(cfId);
+    if (currentUser?.id) {
+      fetchManualProgress(currentUser.id);
     }
   }, [currentUser]);
 
@@ -171,10 +175,20 @@ function App() {
         </div>
 
         <h1>CM Sheet</h1>
-        <div className="user-profile" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+        <div className="user-profile" style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', gap: '1rem' }}>
           <span>👋 <strong>{currentUser.user_metadata?.display_name || 'User'}</strong></span>
           <span style={{ color: 'var(--text-muted)' }}>|</span>
-          <span style={{ color: 'var(--primary)' }}>CF: {currentUser.user_metadata?.cf_id}</span>
+          <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            CF: {currentUser.user_metadata?.cf_id}
+            <button
+              onClick={() => fetchCFProgress(currentUser.user_metadata?.cf_id)}
+              className="toggle-btn"
+              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderRadius: '4px' }}
+              disabled={loading}
+            >
+              {loading ? '⏳' : '🔄 Sync'}
+            </button>
+          </span>
         </div>
 
         {error && <p style={{ color: 'var(--error)', marginTop: '1rem' }}>{error}</p>}
